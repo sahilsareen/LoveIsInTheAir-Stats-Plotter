@@ -12,10 +12,15 @@
 #    and the tweet count is accumulated for each state
 # 3. A pie chart is plotted using PieChartPlotter for ease of visualizing the results
 
+# To improve the performance(speed) a cache of cities is maintained and appended to on every run
+# This is because the twitter stream app is appending to the already found cities continuously
+
 
 import logging
 from geopy.geocoders import Nominatim
 
+from CacheAppender import CacheAppender
+from CachedCities import cached_cities
 from ConfigReader import ConfigReader
 from PieChartPlotter import PieChartPlotter
 from States import states_in_india
@@ -31,6 +36,7 @@ class StatesTweetCount:
         self.states = {}
         self.geo_locator = Nominatim()
         self.tweet_count = 0
+        self.city_cache_appender = CacheAppender(self.config.cache_file_path)
 
         def get_level():
             return {
@@ -85,6 +91,10 @@ class StatesTweetCount:
         self.logger.error("[GEOPY] Address not found: %s" % address)
         return None
 
+    def append_to_cache(self, city, state):
+        if self.config.update_cache_file:
+            self.city_cache_appender.append_cached_data(city, state)
+
     def read_tweet_cities(self, file_name):
         tuples = []
         for part in xrange(0, self.config.spark_num_partitions):
@@ -98,19 +108,35 @@ class StatesTweetCount:
         for city_tuple in tuples:
             self.logger.debug("Processing city tuple: %s" % city_tuple.rstrip())
             city_name, tweet_count = city_tuple[1:].strip("(|)\n").split(",")
-            address = self.get_full_address(city_name)
-            state = self.process_address_tweet(address)
-            self.logger.debug("Mapped city: %s to state: %s" % (city_name, state))
-            self.increment_tweet_count(state, int(tweet_count))
+            if city_name in cached_cities.keys():
+                state = cached_cities[city_name]
+                self.logger.debug("Mapped city: %s to state: %s" % (city_name, state))
+                self.increment_tweet_count(state, int(tweet_count))
+            else:
+                address = self.get_full_address(city_name)
+                state = self.process_address_tweet(address)
+                self.logger.debug("Mapped city: %s to state: %s" % (city_name, state))
+                self.increment_tweet_count(state, int(tweet_count))
+                self.append_to_cache(city_name, state)
 
     def run(self):
-        self.read_tweet_cities(self.config.spark_file_name)
-        if self.logger.isEnabledFor(logging.INFO):
-            for state, num_tweets in self.states.iteritems():
-                self.logger.info("[%s] Tweets: %s, Percentage: %s" % (
-                    state,
-                    num_tweets,
-                    (num_tweets * 100.0) / self.tweet_count))
+        try:
+            self.read_tweet_cities(self.config.spark_file_name)
+            if self.logger.isEnabledFor(logging.INFO):
+                for state, num_tweets in self.states.iteritems():
+                    self.logger.info("[%s] Tweets: %s, Percentage: %s" % (
+                        state,
+                        num_tweets,
+                        (num_tweets * 100.0) / self.tweet_count))
+
+            PieChartPlotter(self.states.keys(),
+                            self.states.values(),
+                            self.config.plotly_username,
+                            self.config.plotly_api_key,
+                            self.config.plotly_plot_name)
+        finally:
+            if self.config.update_cache_file:
+                self.city_cache_appender.append_cache_file()
 
 if __name__ == '__main__':
     StatesTweetCount().run()
