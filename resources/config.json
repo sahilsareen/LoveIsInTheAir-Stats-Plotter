@@ -1,0 +1,11 @@
+{
+  "logging_level": "INFO",
+  "update_cache_file": true,
+  "cache_file_path": "./CachedCities.py",
+  "spark_file_name": "/Users/sssareen/LoveIsInTheAir/STATE-1455360470000/part-0000%s",
+  "spark_num_partitions": 2,
+  "geopy_timeout": 100000,
+  "plotly_username": "sahilsareen",
+  "plotly_api_key": "2u8og1rtqd",
+  "plotly_plot_name": "Kiss Day"
+}
