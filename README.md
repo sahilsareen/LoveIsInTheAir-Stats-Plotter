@@ -38,7 +38,7 @@ A pie chart plotter for Spark twitter steaming data collected from all over Indi
 
 # License
 
-See [Liscence](https://github.com/sahilsareen/LoveIsInTheAir-Stats-Plotter/blob/master/LICENSE)
+See [License](https://github.com/sahilsareen/LoveIsInTheAir-Stats-Plotter/blob/master/LICENSE)
 
 # Author
 
